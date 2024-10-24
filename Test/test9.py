@@ -189,7 +189,7 @@ def setup_video_capture():
     
     cap1 = reconnect_camera(0)  # Start USB webcam (camera index 0)
     cap2 = reconnect_camera(1)  # Start laptop camera (camera index 1)
-``
+
 # Function to start camera threads
 def start_camera_threads():
     # Start threads to capture frames from both cameras
