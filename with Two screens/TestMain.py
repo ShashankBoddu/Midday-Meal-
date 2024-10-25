@@ -18,8 +18,6 @@ import uart_handler  # Import the UART handler
 
 
 
-
-
 # Global variables to hold the frames and weight
 
 frame1 = None
@@ -30,13 +28,15 @@ weight = "Non"  # Initial weight value
 
 lock = threading.Lock()  # To synchronize frame updates
 
+
+
 # Global screen dimensions
 
 screen_width = 0
 
 screen_height = 0
 
-allow_escape_fullscreen = True  # Set this to True if you want to allow the Escape key to exit fu
+
 
 # Variables to hold the video capture objects
 
@@ -146,15 +146,15 @@ def update_display():
 
     with lock:
 
-        # Display Weight in Frame 1
+        # Display Weight in the meal_label frame
 
         weight = uart_handler.weight  # Fetch the weight from uart_handler
 
-        weight_label.config(text=f"Weight: {weight}")  # Update the label with the weight
+        meal_label.config(text=f"\tMidday Meal\n\nTime: {rtc_handler.get_rtc_time()['time']}\n\nDate: {rtc_handler.get_rtc_time()['date']}\n\nFood Weight: {weight}")
 
 
 
-        # Display USB webcam in Frame 2
+        # Display Laptop Camera in the top-left box
 
         if frame1 is not None:
 
@@ -166,35 +166,17 @@ def update_display():
 
             imgtk1 = ImageTk.PhotoImage(image=img1)
 
-            webcam_label.imgtk1 = imgtk1
+            laptop_label.imgtk1 = imgtk1
 
-            webcam_label.config(image=imgtk1)
+            laptop_label.config(image=imgtk1)
 
         else:
 
-            webcam_label.config(text="Camera 1 not available")  # Show a message if the camera is not available
+            laptop_label.config(text="Camera 1 not available")  # Show a message if the camera is not available
 
 
 
-        # Always display current date and time from the RTC
-
-        try:
-
-            current_rtc = rtc_handler.get_rtc_time()
-
-            current_time = current_rtc["time"]
-
-            current_date = current_rtc["date"]
-
-            meal_label.config(text=f"Midday Meal\nTime: {current_time}\nDate: {current_date}")
-
-        except Exception as e:
-
-            meal_label.config(text=f"RTC Error: {str(e)}")
-
-
-
-        # Display second USB camera in Frame 4
+        # Display USB Webcam in the bottom-left box
 
         if frame2 is not None:
 
@@ -206,13 +188,13 @@ def update_display():
 
             imgtk2 = ImageTk.PhotoImage(image=img2)
 
-            laptop_label.imgtk2 = imgtk2
+            webcam_label.imgtk2 = imgtk2
 
-            laptop_label.config(image=imgtk2)
+            webcam_label.config(image=imgtk2)
 
         else:
 
-            laptop_label.config(text="Camera 2 not available")  # Show a message if the camera is not available
+            webcam_label.config(text="Camera 2 not available")  # Show a message if the camera is not available
 
 
 
@@ -220,51 +202,17 @@ def update_display():
 
     root.after(50, update_display)  # Update every 50 ms for smoother display
 
-# Function to toggle full-screen mode
 
-def toggle_fullscreen(enable_fullscreen):
-
-    if enable_fullscreen:
-
-        root.attributes("-fullscreen", True)
-
-        root.overrideredirect(True)  # Make the window borderless/full-screen
-
-    else:
-
-        root.attributes("-fullscreen", False)
-
-        root.overrideredirect(False)  # Restore window decorations
 
 # Function to minimize the window when the Escape key is pressed
 
 def minimize_window(event=None):
 
-    global allow_escape_fullscreen
+    root.attributes("-fullscreen", False)
 
-    if allow_escape_fullscreen:
+    root.overrideredirect(False)
 
-        root.attributes("-fullscreen", False)
-
-        root.overrideredirect(False)
-
-        root.iconify()  # Minimize the window
-
-# Function to enable/disable Escape key for minimizing the window
-
-def set_escape_fullscreen(enable):
-
-    global allow_escape_fullscreen
-
-    allow_escape_fullscreen = enable
-
-    if allow_escape_fullscreen:
-
-        root.bind("<Escape>", minimize_window)  # Bind Escape to minimize the window
-
-    else:
-
-        root.unbind("<Escape>")  # Unbind Escape to prevent minimizing the window
+    root.iconify()  # Minimize the window
 
 # Function to set up the GUI window for the Init Screen
 
@@ -282,9 +230,9 @@ def setup_init_screen():
 
 
 
-    # Bind the 'q' key to exit the application
+    # Bind the Escape key to minimize the window
 
-    root.bind('q', lambda event: exit_application())
+    root.bind("<Escape>", minimize_window)
 
 
 
@@ -300,9 +248,7 @@ def setup_init_screen():
 
     root.geometry(f"{screen_width}x{screen_height}+0+0")
 
-    toggle_fullscreen(True)  # Enable full screen mode
-
-    set_escape_fullscreen(allow_escape_fullscreen)  # Control Escape key behavior
+    root.attributes("-fullscreen", True)
 
 
 
@@ -312,7 +258,7 @@ def setup_init_screen():
 
         logo = Image.open("middaymeallog.png")  # Use the file name directly if it's in the same folder
 
-        logo = logo.resize((200, 200), Image.Resampling.LANCZOS)  # Resize logo to fit
+        logo = logo.resize((300, 300), Image.Resampling.LANCZOS)  # Resize logo to fit
 
         logo_img = ImageTk.PhotoImage(logo)
 
@@ -334,12 +280,15 @@ def setup_init_screen():
 
     init_status_label.pack(expand=True, fill=tk.BOTH)
 
-# Function to display status updates during initializatio
+# Function to display status updates during initialization
+
 def update_init_screen(status_message):
 
     init_status_label.config(text=status_message)
 
     root.update_idletasks()
+
+
 
 # Function to perform initialization
 
@@ -461,72 +410,13 @@ def init_screen():
 
         update_init_screen(init_status)
 
-# Function to set up the GUI window for the Init Screen
 
-def setup_init_screen():
-
-    global root, init_status_label, screen_width, screen_height
-
-
-
-    # Initialize the Tkinter window for the init screen
-
-    root = tk.Tk()
-
-    root.title("Initialization")
-
-
-
-    # Get the screen width and height
-
-    screen_width = root.winfo_screenwidth()
-
-    screen_height = root.winfo_screenheight()
-
-
-
-    # Set the window to full screen
-
-    root.geometry(f"{screen_width}x{screen_height}+0+0")
-
-    toggle_fullscreen(True)  # Enable full screen mode
-
-    set_escape_fullscreen(allow_escape_fullscreen)  # Control Escape key behavior
-
-
-
-    # Load and display the logo
-
-    try:
-
-        logo = Image.open("middaymeallog.png")  # Use the file name directly if it's in the same folder
-
-        logo = logo.resize((400, 400), Image.Resampling.LANCZOS)  # Resize logo to fit
-
-        logo_img = ImageTk.PhotoImage(logo)
-
-        logo_label = tk.Label(root, image=logo_img)
-
-        logo_label.image = logo_img  # Keep a reference to prevent garbage collection
-
-        logo_label.pack(pady=10)
-
-    except Exception as e:
-
-        print(f"Error loading logo: {e}")
-
-
-
-    # Initialize a label to show status updates
-
-    init_status_label = tk.Label(root, text="Initializing...", font=("Helvetica", 24), fg="blue", padx=20, pady=20)
-
-    init_status_label.pack(expand=True, fill=tk.BOTH)
 
 # Function to set up the GUI window for Monitoring Screen
+
 def setup_gui():
 
-    global screen_width, screen_height, weight_label, webcam_label, meal_label, laptop_label
+    global screen_width, screen_height, weight_label, webcam_label, meal_label, laptop_label, notes_label
 
 
 
@@ -542,53 +432,73 @@ def setup_gui():
 
     root.geometry(f"{screen_width}x{screen_height}+0+0")
 
-    toggle_fullscreen(True)  # Enable full screen mode
-
-    set_escape_fullscreen(allow_escape_fullscreen)  # Control Escape key behavior
+    root.attributes("-fullscreen", True)
 
 
 
-    # Frame 1: Display Weight with border and styling
+    # Bind the Escape key to minimize the window
 
-    weight_label = tk.Label(root, font=("Helvetica", 24), bg="white", fg="black", bd=5, relief="solid", padx=10, pady=10)
-
-    weight_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+    root.bind("<Escape>", minimize_window)
 
 
 
-    # Frame 2: Display USB Webcam with border and styling
+    # Frame for the Laptop Camera (Top Left Box) - More Height and Width
 
-    webcam_label = tk.Label(root, bd=5, relief="solid")
+    laptop_label = tk.Label(root, bd=5, relief="raised")
 
-    webcam_label.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
-
-
-    # Frame 3: Display "Midday Meal" text with border and styling
-
-    meal_label = tk.Label(root, font=("Helvetica", 24), bg="white", fg="black", bd=5, relief="solid", padx=10, pady=10)
-
-    meal_label.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+    laptop_label.grid(row=0, column=0, rowspan=3, sticky="nsew", padx=10, pady=10)
 
 
 
-    # Frame 4: Display Laptop Camera with border and styling
+    # Frame for the USB Webcam (Bottom Left Box)
 
-    laptop_label = tk.Label(root, bd=5, relief="solid")
+    webcam_label = tk.Label(root, bd=5, relief="raised")
 
-    laptop_label.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+    webcam_label.grid(row=3, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
 
 
 
-    # Make sure the grid expands properly when the window is resized
+    # Frame for Date, Time, and Food Weight (Right Side) - More Height
 
-    root.grid_rowconfigure(0, weight=1)
+    meal_label = tk.Label(root, font=("Helvetica", 20), bg="white", fg="black", bd=5, relief="ridge", padx=10, pady=10, anchor="w", justify="left")
 
-    root.grid_rowconfigure(1, weight=1)
+    meal_label.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=10, pady=10)
 
-    root.grid_columnconfigure(0, weight=1)
 
-    root.grid_columnconfigure(1, weight=1) Function to start camera threads
+
+    # Frame for Notes (Right Side Below Date, Time, and Food Weight)
+
+    notes_label = tk.Label(root, font=("Helvetica", 18), bg="white", fg="black", bd=5, relief="groove", padx=10, pady=10, anchor="w", justify="left", text="Notes Frame")
+
+    notes_label.grid(row=3, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
+
+
+
+    # Adjust the weights to give more space to specific rows and columns
+
+    # Rows for Laptop and Meal should have more height
+
+    root.grid_rowconfigure(0, weight=3)  # More height for the Laptop frame
+
+    root.grid_rowconfigure(1, weight=3)  # More height for continuation if needed
+
+    root.grid_rowconfigure(2, weight=3)  # More height for Meal frame
+
+    root.grid_rowconfigure(3, weight=2)  # Less height for the Web Camera
+
+    root.grid_rowconfigure(4, weight=1)  # Less height for Notes
+
+
+
+    # Columns for Laptop and Web should have more width
+
+    root.grid_columnconfigure(0, weight=3)  # More width for the Laptop and Web Camera frames
+
+    root.grid_columnconfigure(1, weight=2)  # Less width for Date/Time and Notes
+
+
+
+# Function to start camera threads
 
 def start_camera_threads():
 
@@ -626,7 +536,7 @@ def periodic_rtc_sync_with_ntp():
 
         rtc_handler.sync_rtc_with_ntp()
 
-        time.sleep(600)  # Retry every 10 minutes
+        time.sleep(65)  # Retry every 10 minutes
 
 
 
@@ -647,6 +557,10 @@ def main():
     # Perform the initialization in a separate thread
 
     threading.Thread(target=init_screen, daemon=True).start()
+
+
+
+    threading.Thread(target=periodic_rtc_sync_with_ntp, daemon=True).start()
 
 
 
