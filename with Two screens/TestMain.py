@@ -1,49 +1,29 @@
 import cv2
-
 import tkinter as tk
-
 from PIL import Image, ImageTk
-
 import threading
-
 import time
 
-
-
 # Custom Modules
-
 import rtc_handler_manual as rtc_handler  # Import the manual RTC handler
-
 import uart_handler  # Import the UART handler
 
-
+# Load OpenCV's Haar Cascade for face detection
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # Global variables to hold the frames and weight
-
 frame1 = None
-
 frame2 = None
-
 weight = "Non"  # Initial weight value
-
 lock = threading.Lock()  # To synchronize frame updates
 
-
-
 # Global screen dimensions
-
 screen_width = 0
-
 screen_height = 0
 
-
-
 # Variables to hold the video capture objects
-
 cap1 = None
-
 cap2 = None
-
 
 
 # Function to reconnect camera
@@ -88,7 +68,7 @@ def capture_webcam():
 
         if cap1 is None or not cap1.isOpened():
 
-            cap1 = reconnect_camera(0)  # Camera index 0 for USB webcam
+            cap1 = reconnect_camera(2)  # Camera index 0 for USB webcam
 
         if cap1 and cap1.isOpened():
 
@@ -118,7 +98,7 @@ def capture_laptop_cam():
 
         if cap2 is None or not cap2.isOpened():
 
-            cap2 = reconnect_camera(2)  # Camera index 2 for the second USB camera
+            cap2 = reconnect_camera(0)  # Camera index 2 for the second USB camera
 
         if cap2 and cap2.isOpened():
 
@@ -138,71 +118,65 @@ def capture_laptop_cam():
 
 
 
-# Function to update the display of both cameras and text
-
 def update_display():
-
     global frame1, frame2, weight
-
     with lock:
-
         # Display Weight in the meal_label frame
-
         weight = uart_handler.weight  # Fetch the weight from uart_handler
-
         meal_label.config(text=f"\tMidday Meal\n\nTime: {rtc_handler.get_rtc_time()['time']}\n\nDate: {rtc_handler.get_rtc_time()['date']}\n\nFood Weight: {weight}")
 
-
-
-        # Display Laptop Camera in the top-left box
-
+        # Display and analyze Laptop Camera feed
         if frame1 is not None:
-
             frame1_resized = cv2.resize(frame1, (screen_width // 2 - 20, screen_height // 2 - 20))
+            gray_frame = cv2.cvtColor(frame1_resized, cv2.COLOR_BGR2GRAY)  # Convert to grayscale for detection
+            faces = face_cascade.detectMultiScale(gray_frame, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100))
+            
+            if len(faces) > 0:
+                # Assume the first detected face is the target
+                (x, y, w, h) = faces[0]
+                
+                # Check lighting conditions (average brightness of the face region)
+                face_region = gray_frame[y:y+h, x:x+w]
+                avg_brightness = cv2.mean(face_region)[0]
+
+                # Basic face quality checks
+                if w < 100 or h < 100:
+                    feedback_text = "Face is too small. Move closer."
+                elif avg_brightness < 50:
+                    feedback_text = "Lighting is too low."
+                else:
+                    feedback_text = "Face detected. Ready to capture."
+                
+                # Draw a rectangle around the face
+                cv2.rectangle(frame1_resized, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                # Display feedback
+                cv2.putText(frame1_resized, feedback_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            else:
+                # No face detected feedback
+                feedback_text = "No face detected. Adjust position or lighting."
+                cv2.putText(frame1_resized, feedback_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
             img1 = cv2.cvtColor(frame1_resized, cv2.COLOR_BGR2RGB)
-
             img1 = Image.fromarray(img1)
-
             imgtk1 = ImageTk.PhotoImage(image=img1)
-
             laptop_label.imgtk1 = imgtk1
-
             laptop_label.config(image=imgtk1)
-
         else:
-
             laptop_label.config(text="Camera 1 not available")  # Show a message if the camera is not available
 
-
-
         # Display USB Webcam in the bottom-left box
-
         if frame2 is not None:
-
             frame2_resized = cv2.resize(frame2, (screen_width // 2 - 20, screen_height // 2 - 20))
-
             img2 = cv2.cvtColor(frame2_resized, cv2.COLOR_BGR2RGB)
-
             img2 = Image.fromarray(img2)
-
             imgtk2 = ImageTk.PhotoImage(image=img2)
-
             webcam_label.imgtk2 = imgtk2
-
             webcam_label.config(image=imgtk2)
-
         else:
-
             webcam_label.config(text="Camera 2 not available")  # Show a message if the camera is not available
 
-
-
     # Schedule the next frame update
-
     root.after(50, update_display)  # Update every 50 ms for smoother display
-
-
 
 # Function to minimize the window when the Escape key is pressed
 
@@ -214,13 +188,13 @@ def minimize_window(event=None):
 
     root.iconify()  # Minimize the window
 
+
+
 # Function to set up the GUI window for the Init Screen
 
 def setup_init_screen():
 
     global root, init_status_label, screen_width, screen_height
-
-
 
     # Initialize the Tkinter window for the init screen
 
@@ -354,7 +328,7 @@ def init_screen():
 
     global cap1, cap2
 
-    cap1 = reconnect_camera(0)
+    cap1 = reconnect_camera(2)
 
     if cap1 and cap1.isOpened():
 
@@ -370,7 +344,7 @@ def init_screen():
 
 
 
-    cap2 = reconnect_camera(2)
+    cap2 = reconnect_camera(0)
 
     if cap2 and cap2.isOpened():
 
@@ -522,9 +496,9 @@ def setup_video_capture():
 
     global cap1, cap2
 
-    cap1 = reconnect_camera(0)  # Start USB webcam (camera index 0)
+    cap1 = reconnect_camera(2)  # Start USB webcam (camera index 0)
 
-    cap2 = reconnect_camera(2)  # Start second USB camera (camera index 2)
+    cap2 = reconnect_camera(0)  # Start second USB camera (camera index 2)
 
 
 
@@ -591,4 +565,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-

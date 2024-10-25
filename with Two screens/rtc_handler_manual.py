@@ -1,4 +1,3 @@
-#rtc_handler_manual.py
 import time
 import smbus2
 import ntplib  # NTP client for time sync
@@ -7,14 +6,13 @@ from datetime import datetime, timedelta
 # I2C address for PCF8523
 PCF8523_ADDRESS = 0x68
 
-# Register addresses for PCF8523
+# Register addresses for PCF8523 (Using the previous working version's addresses)
 SECONDS_REGISTER = 0x03
 MINUTES_REGISTER = 0x04
 HOURS_REGISTER = 0x05
 DAYS_REGISTER = 0x06
 MONTHS_REGISTER = 0x08
 YEARS_REGISTER = 0x09
-
 # Initialize I2C bus
 bus = smbus2.SMBus(1)  # Use I2C bus 1 (common for Raspberry Pi)
 
@@ -28,26 +26,39 @@ def dec_to_bcd(dec):
 
 # Function to read the current date and time from the PCF8523 RTC
 def get_rtc_time():
-    seconds = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, SECONDS_REGISTER) & 0x7F)
-    minutes = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, MINUTES_REGISTER) & 0x7F)
-    hours = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, HOURS_REGISTER) & 0x3F)
-    day = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, DAYS_REGISTER) & 0x3F)
-    month = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, MONTHS_REGISTER) & 0x1F)
-    year = 2000 + bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, YEARS_REGISTER))  # PCF8523 returns years since 2000
-    
-    return {
-        "time": f"{hours:02}:{minutes:02}",
-        "date": f"{day:02}/{month:02}/{year % 100:02}"
-    }
+    try:
+        seconds = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, SECONDS_REGISTER) & 0x7F)
+        minutes = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, MINUTES_REGISTER) & 0x7F)
+        hours = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, HOURS_REGISTER) & 0x3F)
+        day = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, DAYS_REGISTER) & 0x3F)
+        month = bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, MONTHS_REGISTER) & 0x1F)
+        year = 2000 + bcd_to_dec(bus.read_byte_data(PCF8523_ADDRESS, YEARS_REGISTER))  # PCF8523 returns years since 2000
+
+        rtc_time = {
+            "time": f"{hours:02}:{minutes:02}:{seconds:02}",
+            "date": f"{day:02}/{month:02}/{year % 100:02}"
+        }
+        return rtc_time
+
+    except OSError as e:
+        print(f"RTC Communication Error: {e}")
+        # Fallback to a default time or handle the error as necessary
+        return {
+            "time": "00:00:00",
+            "date": "01/01/2000"
+        }
 
 # Function to set the time and date on the PCF8523 RTC
 def set_rtc_time(hour, minute, second, day, month, year):
-    bus.write_byte_data(PCF8523_ADDRESS, SECONDS_REGISTER, dec_to_bcd(second))
-    bus.write_byte_data(PCF8523_ADDRESS, MINUTES_REGISTER, dec_to_bcd(minute))
-    bus.write_byte_data(PCF8523_ADDRESS, HOURS_REGISTER, dec_to_bcd(hour))
-    bus.write_byte_data(PCF8523_ADDRESS, DAYS_REGISTER, dec_to_bcd(day))
-    bus.write_byte_data(PCF8523_ADDRESS, MONTHS_REGISTER, dec_to_bcd(month))
-    bus.write_byte_data(PCF8523_ADDRESS, YEARS_REGISTER, dec_to_bcd(year - 2000))  # Store year since 2000
+    try:
+        bus.write_byte_data(PCF8523_ADDRESS, SECONDS_REGISTER, dec_to_bcd(second))
+        bus.write_byte_data(PCF8523_ADDRESS, MINUTES_REGISTER, dec_to_bcd(minute))
+        bus.write_byte_data(PCF8523_ADDRESS, HOURS_REGISTER, dec_to_bcd(hour))
+        bus.write_byte_data(PCF8523_ADDRESS, DAYS_REGISTER, dec_to_bcd(day))
+        bus.write_byte_data(PCF8523_ADDRESS, MONTHS_REGISTER, dec_to_bcd(month))
+        bus.write_byte_data(PCF8523_ADDRESS, YEARS_REGISTER, dec_to_bcd(year - 2000))  # Store year since 2000
+    except OSError as e:
+        print(f"Error setting RTC time: {e}")
 
 # Function to get the server time using NTP, adjusted for IST (UTC +5:30)
 def get_ntp_time(ntp_server='pool.ntp.org'):
