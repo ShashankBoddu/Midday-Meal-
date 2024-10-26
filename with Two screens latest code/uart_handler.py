@@ -2,11 +2,13 @@
 import serial
 import time
 import re
+import threading
 
 # Global variables
 ser = None
 weight = "Non"  # Initialize the weight as a global variable
 SerialFailCount = 0
+pause_event = threading.Event()  # Event to manage pause/resume
 # Function to set up UART
 def setup_uart():
     global ser
@@ -24,6 +26,7 @@ def read_weight_from_uart():
     ignore_bytes = 20  # Number of bytes to ignore at the beginning
 
     while True:
+        pause_event.wait()  # Wait here if operations are paused
         try:
             # Read raw data from UART in chunks (100 bytes)
             
